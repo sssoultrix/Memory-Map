@@ -5,6 +5,7 @@
     <title>Редактирование участка</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/main.css" rel="stylesheet">
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=ваш_API_ключ&lang=ru_RU" type="text/javascript"></script>
 </head>
 <body>
     <div th:replace="fragments/header :: header"></div>
@@ -15,44 +16,58 @@
         <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
 
         <form th:action="@{/plots/{id}/edit(id=${plot.id})}" method="post" th:object="${plot}">
-            <div class="mb-3">
-                <label for="plotNumber" class="form-label">Номер участка</label>
-                <input type="text" class="form-control" id="plotNumber" th:field="*{plotNumber}" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="section" class="form-label">Секция</label>
-                <input type="text" class="form-control" id="section" th:field="*{section}" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="status" class="form-label">Статус</label>
-                <select class="form-control" id="status" th:field="*{status}">
-                    <option th:each="status : ${T(com.cemetery.cemetery_management.models.Plot.PlotStatus).values()}"
-                            th:value="${status}" th:text="${status}">
-                    </option>
-                </select>
-            </div>
-
             <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="width" class="form-label">Ширина</label>
-                    <input type="number" step="0.01" class="form-control" id="width" th:field="*{width}">
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label for="length" class="form-label">Длина</label>
-                    <input type="number" step="0.01" class="form-control" id="length" th:field="*{length}">
-                </div>
-            </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="plotNumber" class="form-label">Номер участка</label>
+                        <input type="text" class="form-control" id="plotNumber" th:field="*{plotNumber}" required>
+                    </div>
 
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="latitude" class="form-label">Широта</label>
-                    <input type="number" step="0.000001" class="form-control" id="latitude" th:field="*{latitude}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Наименование участка</label>
+                        <input type="text" class="form-control" id="name" th:field="*{name}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="section" class="form-label">Секция</label>
+                        <input type="text" class="form-control" id="section" th:field="*{section}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Описание участка</label>
+                        <textarea class="form-control" id="description" th:field="*{description}" rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Статус</label>
+                        <select class="form-control" id="status" th:field="*{status}">
+                            <option th:each="status : ${statuses}"
+                                    th:value="${status}"
+                                    th:text="${status.displayName}">
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="area" class="form-label">Площадь (м²)</label>
+                        <input type="number" step="0.01" class="form-control" id="area" th:field="*{area}" 
+                               placeholder="Введите площадь участка в квадратных метрах">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="locationDescription" class="form-label">Описание местоположения</label>
+                        <textarea class="form-control" id="locationDescription" th:field="*{locationDescription}" rows="2"></textarea>
+                    </div>
+
+                    <input type="hidden" id="latitude" th:field="*{latitude}">
+                    <input type="hidden" id="longitude" th:field="*{longitude}">
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label for="longitude" class="form-label">Долгота</label>
-                    <input type="number" step="0.000001" class="form-control" id="longitude" th:field="*{longitude}">
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Местоположение на карте</label>
+                        <div id="map" style="width: 100%; height: 400px;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -62,5 +77,41 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:inline="javascript">
+        ymaps.ready(init);
+        
+        function init() {
+            var plotData = /*[[${plot}]]*/ {};
+            var latitude = plotData.latitude || 55.76;
+            var longitude = plotData.longitude || 37.64;
+            
+            var myMap = new ymaps.Map('map', {
+                center: [latitude, longitude],
+                zoom: plotData.latitude ? 17 : 10
+            });
+
+            // Создаем метку
+            var myPlacemark = new ymaps.Placemark([latitude, longitude], {}, {
+                draggable: true
+            });
+
+            myMap.geoObjects.add(myPlacemark);
+
+            // Обработчик перетаскивания метки
+            myPlacemark.events.add('dragend', function () {
+                var coords = myPlacemark.geometry.getCoordinates();
+                document.getElementById('latitude').value = coords[0];
+                document.getElementById('longitude').value = coords[1];
+            });
+
+            // Обработчик клика по карте
+            myMap.events.add('click', function (e) {
+                var coords = e.get('coords');
+                myPlacemark.geometry.setCoordinates(coords);
+                document.getElementById('latitude').value = coords[0];
+                document.getElementById('longitude').value = coords[1];
+            });
+        }
+    </script>
 </body>
 </html> 
