@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Просмотр захоронения</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/main.css" rel="stylesheet">
+    <script th:src="@{'https://api-maps.yandex.ru/2.1/?apikey=' + ${@environment.getProperty('yandex.maps.api-key')} + '&lang=ru_RU'}" type="text/javascript"></script>
+</head>
+<body>
+    <div th:replace="fragments/header :: header"></div>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <h2>Информация о захоронении</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="card-title" th:text="${burial.lastName + ' ' + burial.firstName + ' ' + (burial.middleName ?: '')}"></h3>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h5>Основная информация</h5>
+                                <p><strong>Дата рождения:</strong> <span th:text="${#temporals.format(burial.dateOfBirth, 'dd.MM.yyyy')}"></span></p>
+                                <p><strong>Дата смерти:</strong> <span th:text="${#temporals.format(burial.dateOfDeath, 'dd.MM.yyyy')}"></span></p>
+                                <p><strong>Дата захоронения:</strong> <span th:text="${#temporals.format(burial.burialDate, 'dd.MM.yyyy')}"></span></p>
+                                <p><strong>Тип захоронения:</strong> <span th:text="${burial.burialType.displayName}"></span></p>
+                                <p><strong>Статус:</strong> <span th:text="${burial.status.displayName}"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Информация об участке</h5>
+                                <p><strong>Номер участка:</strong> <span th:text="${burial.plot.plotNumber}"></span></p>
+                                <p><strong>Секция:</strong> <span th:text="${burial.plot.section}"></span></p>
+                                <p><strong>Площадь:</strong> <span th:text="${burial.plot.area != null ? burial.plot.area + ' м²' : '-'}"></span></p>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h5>Ответственное лицо</h5>
+                            <p><strong>ФИО:</strong> <span th:text="${burial.responsiblePerson ?: '-'}"></span></p>
+                            <p><strong>Телефон:</strong> <span th:text="${burial.responsiblePersonPhone ?: '-'}"></span></p>
+                        </div>
+
+                        <div class="mb-4" th:if="${burial.documents}">
+                            <h5>Документы</h5>
+                            <p th:text="${burial.documents}"></p>
+                        </div>
+
+                        <div class="mb-4" th:if="${burial.biography}">
+                            <h5>Биография</h5>
+                            <p th:text="${burial.biography}"></p>
+                        </div>
+
+                        <div class="mt-4">
+                            <a th:href="@{/burials/{id}/edit(id=${burial.id})}" class="btn btn-warning">Редактировать</a>
+                            <form th:action="@{/burials/{id}/delete(id=${burial.id})}" method="post" style="display: inline;">
+                                <button type="submit" class="btn btn-danger" 
+                                        onclick="return confirm('Вы уверены, что хотите удалить это захоронение?')">
+                                    Удалить
+                                </button>
+                            </form>
+                            <a href="/burials" class="btn btn-secondary">Назад к списку</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <h2>Расположение на карте</h2>
+                <div id="map" style="width: 100%; height: 400px;" class="mb-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:inline="javascript">
+        ymaps.ready(init);
+        
+        function init() {
+            try {
+                var burial = /*[[${burial}]]*/ {};
+                var plot = burial.plot;
+                
+                if (!plot || !plot.latitude || !plot.longitude) {
+                    document.getElementById('map').innerHTML = 
+                        '<div class="alert alert-warning">Координаты участка не указаны</div>';
+                    return;
+                }
+
+                var latitude = plot.latitude;
+                var longitude = plot.longitude;
+                var offsetX = plot.offsetX || 0.000015;
+                var offsetY = plot.offsetY || 0.000015;
+
+                var myMap = new ymaps.Map('map', {
+                    center: [latitude, longitude],
+                    zoom: 19
+                });
+
+                // Создаем координаты для углов участка
+                var corners = [
+                    [latitude - offsetY, longitude - offsetX],
+                    [latitude - offsetY, longitude + offsetX],
+                    [latitude + offsetY, longitude + offsetX],
+                    [latitude + offsetY, longitude - offsetX],
+                    [latitude - offsetY, longitude - offsetX] // Замыкаем полигон
+                ];
+
+                // Создаем полигон
+                var polygon = new ymaps.Polygon([corners], {
+                    hintContent: 'Участок ' + plot.plotNumber
+                }, {
+                    fillColor: '#3366ff77', // Более насыщенный синий цвет с прозрачностью
+                    strokeColor: '#3366ff',
+                    strokeWidth: 2
+                });
+
+                // Добавляем номер в центре
+                var centerPlacemark = new ymaps.Placemark([latitude, longitude], {
+                    iconContent: plot.plotNumber
+                }, {
+                    preset: 'islands#blueStretchyIcon'
+                });
+
+                myMap.geoObjects.add(polygon);
+                myMap.geoObjects.add(centerPlacemark);
+
+                // Устанавливаем содержимое балуна
+                var balloonContent = '<strong>Участок ' + plot.plotNumber + '</strong><br>' +
+                                   'Секция: ' + plot.section + '<br>' +
+                                   'Площадь: ' + (plot.area ? plot.area + ' м²' : '-') + '<br>' +
+                                   'Захоронение: ' + burial.lastName + ' ' + burial.firstName;
+
+                centerPlacemark.properties.set('balloonContentBody', balloonContent);
+                centerPlacemark.balloon.open();
+
+            } catch (error) {
+                console.error('Ошибка при инициализации карты:', error);
+                document.getElementById('map').innerHTML = 
+                    '<div class="alert alert-danger">Ошибка при загрузке карты</div>';
+            }
+        }
+    </script>
+</body>
+</html> 

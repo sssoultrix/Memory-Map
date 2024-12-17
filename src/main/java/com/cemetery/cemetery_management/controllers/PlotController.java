@@ -25,17 +25,16 @@ public class PlotController {
     public String viewPlot(@PathVariable Long id, Model model) {
         Plot plot = plotRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Участок не найден"));
-        
+
         // Формируем ссылку на Яндекс Карты, если есть координаты
         if (plot.getLatitude() != null && plot.getLongitude() != null) {
             String mapLink = String.format(
-                "https://yandex.ru/maps/?pt=%f,%f&z=17&l=map",
-                plot.getLongitude(),
-                plot.getLatitude()
-            );
+                    "https://yandex.ru/maps/?pt=%f,%f&z=17&l=map",
+                    plot.getLongitude(),
+                    plot.getLatitude());
             model.addAttribute("mapLink", mapLink);
         }
-        
+
         model.addAttribute("plot", plot);
         return "plots/view";
     }
@@ -51,28 +50,27 @@ public class PlotController {
     public String createPlot(@ModelAttribute Plot plot, RedirectAttributes redirectAttributes) {
         try {
             if (plotRepository.existsByPlotNumber(plot.getPlotNumber())) {
-                redirectAttributes.addFlashAttribute("error", 
-                    "Участок с таким номером уже существует");
+                redirectAttributes.addFlashAttribute("error",
+                        "Участок с таким номером уже существует");
                 return "redirect:/plots/create";
             }
 
             // Генерируем ссылку на Яндекс Карты
             if (plot.getLatitude() != null && plot.getLongitude() != null) {
                 String mapLink = String.format(
-                    "https://yandex.ru/maps/?pt=%f,%f&z=17&l=map",
-                    plot.getLongitude(),
-                    plot.getLatitude()
-                );
+                        "https://yandex.ru/maps/?pt=%f,%f&z=17&l=map",
+                        plot.getLongitude(),
+                        plot.getLatitude());
                 plot.setYandexMapLink(mapLink);
             }
 
             plotRepository.save(plot);
-            redirectAttributes.addFlashAttribute("success", 
-                "Участок успешно создан");
+            redirectAttributes.addFlashAttribute("success",
+                    "Участок успешно создан");
             return "redirect:/plots";
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", 
-                "Ошибка при создании участка: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error",
+                    "Ошибка при создании участка: " + e.getMessage());
             return "redirect:/plots/create";
         }
     }
@@ -87,16 +85,16 @@ public class PlotController {
     }
 
     @PostMapping("/{id}/edit")
-    public String updatePlot(@PathVariable Long id, @ModelAttribute Plot plot, 
-                           RedirectAttributes redirectAttributes) {
+    public String updatePlot(@PathVariable Long id, @ModelAttribute Plot plot,
+            RedirectAttributes redirectAttributes) {
         try {
             Plot existingPlot = plotRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Участок не найден"));
-            
-            if (!existingPlot.getPlotNumber().equals(plot.getPlotNumber()) && 
-                plotRepository.existsByPlotNumber(plot.getPlotNumber())) {
-                redirectAttributes.addFlashAttribute("error", 
-                    "Участок с таким номером уже существует");
+
+            if (!existingPlot.getPlotNumber().equals(plot.getPlotNumber()) &&
+                    plotRepository.existsByPlotNumber(plot.getPlotNumber())) {
+                redirectAttributes.addFlashAttribute("error",
+                        "Участок с таким номером уже существует");
                 return "redirect:/plots/" + id + "/edit";
             }
 
@@ -112,20 +110,19 @@ public class PlotController {
 
             if (plot.getLatitude() != null && plot.getLongitude() != null) {
                 String mapLink = String.format(
-                    "https://yandex.ru/maps/?pt=%f,%f&z=17&l=map",
-                    plot.getLongitude(),
-                    plot.getLatitude()
-                );
+                        "https://yandex.ru/maps/?pt=%f,%f&z=17&l=map",
+                        plot.getLongitude(),
+                        plot.getLatitude());
                 existingPlot.setYandexMapLink(mapLink);
             }
 
             plotRepository.save(existingPlot);
-            redirectAttributes.addFlashAttribute("success", 
-                "Участок успешно обновлен");
+            redirectAttributes.addFlashAttribute("success",
+                    "Участок успешно обновлен");
             return "redirect:/plots";
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", 
-                "Ошибка при обновлении участка: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error",
+                    "Ошибка при обновлении участка: " + e.getMessage());
             return "redirect:/plots/" + id + "/edit";
         }
     }
@@ -134,11 +131,11 @@ public class PlotController {
     public String deletePlot(@PathVariable Long id, RedirectAttributes redirectAttributes) {
         try {
             plotRepository.deleteById(id);
-            redirectAttributes.addFlashAttribute("success", 
-                "Участок успешно удален");
+            redirectAttributes.addFlashAttribute("success",
+                    "Участок успешно удален");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", 
-                "Ошибка при удалении участка: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error",
+                    "Ошибка при удалении участка: " + e.getMessage());
         }
         return "redirect:/plots";
     }
